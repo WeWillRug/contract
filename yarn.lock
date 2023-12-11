@@ -1268,6 +1268,31 @@
     bignumber.js "^9.0.1"
     rlp "^2.2.6"
 
+"@ledgerhq/hw-transport-node-hid-noevents@^5.51.1":
+  version "5.51.1"
+  resolved "https://registry.npmjs.org/@ledgerhq/hw-transport-node-hid-noevents/-/hw-transport-node-hid-noevents-5.51.1.tgz"
+  integrity sha512-9wFf1L8ZQplF7XOY2sQGEeOhpmBRzrn+4X43kghZ7FBDoltrcK+s/D7S+7ffg3j2OySyP6vIIIgloXylao5Scg==
+  dependencies:
+    "@ledgerhq/devices" "^5.51.1"
+    "@ledgerhq/errors" "^5.50.0"
+    "@ledgerhq/hw-transport" "^5.51.1"
+    "@ledgerhq/logs" "^5.50.0"
+    node-hid "2.1.1"
+
+"@ledgerhq/hw-transport-node-hid@^4.3.0", "@ledgerhq/hw-transport-node-hid@^5.51.1", "@ledgerhq/hw-transport-node-hid@5.26.0":
+  version "5.51.1"
+  resolved "https://registry.npmjs.org/@ledgerhq/hw-transport-node-hid/-/hw-transport-node-hid-5.51.1.tgz"
+  integrity sha512-Y2eVCCdhVs2Lfr7N2x2cNb+ogcZ24ZATO4QxaQ7LogjiPwYmzmvuXFn8zFjMSrKUCn9CtbptXcuiu0NkGsjWlw==
+  dependencies:
+    "@ledgerhq/devices" "^5.51.1"
+    "@ledgerhq/errors" "^5.50.0"
+    "@ledgerhq/hw-transport" "^5.51.1"
+    "@ledgerhq/hw-transport-node-hid-noevents" "^5.51.1"
+    "@ledgerhq/logs" "^5.50.0"
+    lodash "^4.17.21"
+    node-hid "2.1.1"
+    usb "^1.7.0"
+
 "@ledgerhq/hw-transport-u2f@4.24.0":
   version "4.24.0"
   resolved "https://registry.npmjs.org/@ledgerhq/hw-transport-u2f/-/hw-transport-u2f-4.24.0.tgz"
@@ -1643,6 +1668,11 @@
   version "4.8.0"
   resolved "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.8.0.tgz"
   integrity sha512-AGuwhRRL+NaKx73WKRNzeCxOCOCxpaqF+kp8TJ89QzAipSwZy/NoflkWaL9bywXFRhIzXt8j38sfF7KBKCPWLw==
+
+"@pancakeswap/pancake-swap-lib@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.npmjs.org/@pancakeswap/pancake-swap-lib/-/pancake-swap-lib-0.0.4.tgz"
+  integrity sha512-efauTqrPQX0P2X159Z5YnAVNmD8jvFxei9iIbDU850MG7KuupfqNTfDoN2/dCMo2GomSFokG2MjW0GenZc4EFg==
 
 "@resolver-engine/core@^0.3.3":
   version "0.3.3"
@@ -11846,6 +11876,14 @@ url@^0.11.0:
   dependencies:
     punycode "1.3.2"
     querystring "0.2.0"
+
+usb@^1.7.0:
+  version "1.9.2"
+  resolved "https://registry.npmjs.org/usb/-/usb-1.9.2.tgz"
+  integrity sha512-dryNz030LWBPAf6gj8vyq0Iev3vPbCLHCT8dBw3gQRXRzVNsIdeuU+VjPp3ksmSPkeMAl1k+kQ14Ij0QHyeiAg==
+  dependencies:
+    node-addon-api "^4.2.0"
+    node-gyp-build "^4.3.0"
 
 use@^3.1.0:
   version "3.1.1"
