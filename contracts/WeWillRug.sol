@@ -7,9 +7,29 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakeRouter02.sol";
-import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakePair.sol";
-import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakeFactory.sol";
+
+interface IPancakeRouter01 {
+    function factory() external pure returns (address);
+
+    function WETH() external pure returns (address);
+}
+
+interface IPancakeRouter02 is IPancakeRouter01 {}
+
+interface IPancakeFactory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IPancakePair {
+    function getReserves()
+        external
+        view
+        returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+}
+// import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakeRouter02.sol";
+// import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakePair.sol";
+
+// import "https://github.com/pancakeswap/pancake-smart-contracts/blob/master/projects/exchange-protocol/contracts/interfaces/IPancakeFactory.sol";
 
 error PoolDoesNotExist();
 error VotingTimeExcceded();
@@ -18,6 +38,7 @@ error PairDoesNotExist();
 error YouDidNotBet();
 error VotingHasNotEnded();
 error TokenDidRugYouCanotClaim();
+error InvalidExchange();
 
 contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
     enum Options {
@@ -36,6 +57,7 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         address tokenA;
         address tokenB;
         bool ruged;
+        string exchange;
     }
 
     struct Bet {
@@ -53,6 +75,8 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
 
     IERC20 public WERUG;
     IUniswapV2Router02 public uniswapRouter;
+    IPancakeRouter02 public pancakeRouter;
+
     string[] exchanges = ["uniswap", "pankeswap"];
 
     constructor(address _WERUG, address _uniswapRouter) {
@@ -77,12 +101,32 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         if (pairAddress == address(0)) {
             revert PairDoesNotExist();
         }
+
+        //Check is exchange valid
+        bool validExchange = isExchangeValid(_exchange);
+
+        if (!validExchange) {
+            revert InvalidExchange();
+        }
+
         pool.id = poolCounter;
         pool.pairAddress = pairAddress;
         pool.tokenA = _tokenA;
         pool.timeCreated = block.timestamp;
+        pool.exchange = "";
 
         poolCounter++;
+    }
+
+    function isExchangeValid(string memory _exchange) public view returns (bool) {
+        for (uint256 i = 0; i < exchanges.length; i++) {
+            if (
+                keccak256(abi.encodePacked(exchanges[i])) == keccak256(abi.encodePacked(_exchange))
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function claim(uint256 _poolId, address beneficiary) public nonReentrant itExist(_poolId) {
@@ -99,11 +143,7 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
                 revert VotingHasNotEnded();
             }
         } else if (pool.ruged == true) {
-            if (userBet.willRug == true) {
-                uint256 amountBet = userBet.amount;
-                uint256 estimate = calculateEstimatePayout(pool.totalWERUG, amountBet);
-                WERUG.transfer(beneficiary, estimate);
-            } else {
+            if (userBet.willRug == true) {} else {
                 revert TokenDidRugYouCanotClaim();
             }
         }
@@ -112,11 +152,26 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         // if(pool.timeCreated)
     }
 
+    function _claim(
+        Pool memory pool,
+        Bet memory userBet,
+        address beneficiary,
+        uint256 totalForWERUG
+    ) private {
+        uint256 amountBet = userBet.amount;
+        uint256 estimate = calculateEstimatePayout(pool.totalWERUG, totalForWERUG, amountBet);
+        WERUG.transfer(beneficiary, estimate);
+    }
+
     function calculateEstimatePayout(
         uint256 _totalWERUG,
+        uint256 _totalForWERUG,
         uint256 _userWERUG
     ) public view returns (uint256 estimate) {
-        uint256 percentage = (_userWERUG / _totalWERUG) * (100 - teamPercent);
+        // uint256 percentage = (_userWERUG / _totalWERUG) * (100 - teamPercent);
+        // estimate = (_totalWERUG * percentage) / 100;
+
+        uint256 percentage = (_userWERUG / _totalForWERUG) * (100 - teamPercent);
         estimate = (_totalWERUG * percentage) / 100;
     }
 
@@ -150,7 +205,11 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
     function checkUpkeep(
         bytes memory /*checkData*/
     ) public view override returns (bool upKeepNeeded, bytes memory /* performData */) {
-        upKeepNeeded = true;
+        if (poolCounter > 0) {
+            upKeepNeeded = true;
+        } else if (poolCounter <= 0) {
+            upKeepNeeded = false;
+        }
     }
 
     function performUpkeep(bytes calldata /* performData */) external override {
@@ -191,9 +250,12 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         address _tokenB
     ) public view returns (uint256 reserveA, uint256 reserveB) {
         address pairAddress = IPancakeFactory(pancakeRouter.factory()).getPair(_tokenA, _tokenB);
-        require(pairAddress != address(0), "Pair does not exist");
-
+        if (pairAddress == address(0)) {
+            revert PairDoesNotExist();
+        }
         IPancakePair pair = IPancakePair(pairAddress);
-        (reserveA, reserveB) = pair.getReserves();
+        (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+        reserveA = uint256(reserve0);
+        reserveB = uint256(reserve1);
     }
 }
