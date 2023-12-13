@@ -8,6 +8,23 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+interface IERC20Metadata is IERC20 {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
 interface IPancakeRouter01 {
     function factory() external pure returns (address);
 
@@ -72,12 +89,15 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
     uint256 betEnding = 24 hours;
     uint256 poolCounter;
     uint256 teamPercent = 5;
+    uint256 MINIMUMLIQUDITY_WETH = 300000000 * 10 ** 18;
+    uint256 MINIMUMLIQUDITY_USDT = 100;
+    uint256 MINIMUMLIQUDITY_TOKEN = 100;
 
     IERC20 public WERUG;
     IUniswapV2Router02 public uniswapRouter;
     IPancakeRouter02 public pancakeRouter;
 
-    string[] exchanges = ["uniswap", "pankeswap"];
+    string[] exchanges = ["uniswap", "pancakeswap"];
 
     constructor(address _WERUG, address _uniswapRouter) {
         WERUG = IERC20(_WERUG);
@@ -136,20 +156,16 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
             revert YouDidNotBet();
         }
 
-        // Check if pool reward can be claim yet
-
-        if (pool.ruged == false) {
+        if (pool.ruged == false && userBet.willRug == false) {
             if (pool.timeCreated + maxVotingPeriod >= block.timestamp) {
                 revert VotingHasNotEnded();
             }
-        } else if (pool.ruged == true) {
-            if (userBet.willRug == true) {} else {
-                revert TokenDidRugYouCanotClaim();
-            }
+            uint256 totalForWERUG = pool.totalWERUGForWillNotRug;
+            _claim(pool, userBet, beneficiary, totalForWERUG);
+        } else if (pool.ruged == true && userBet.willRug == true) {
+            uint256 totalForWERUG = pool.totalWERUGForWillRug;
+            _claim(pool, userBet, beneficiary, totalForWERUG);
         }
-
-        // if(pool.ruged)
-        // if(pool.timeCreated)
     }
 
     function _claim(
@@ -168,9 +184,6 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         uint256 _totalForWERUG,
         uint256 _userWERUG
     ) public view returns (uint256 estimate) {
-        // uint256 percentage = (_userWERUG / _totalWERUG) * (100 - teamPercent);
-        // estimate = (_totalWERUG * percentage) / 100;
-
         uint256 percentage = (_userWERUG / _totalForWERUG) * (100 - teamPercent);
         estimate = (_totalWERUG * percentage) / 100;
     }
@@ -226,11 +239,29 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         }
         for (uint i = 0; i < activePools.length; i++) {
             bool ruged = hasRuged(activePools[i]);
+            if (ruged) activePools[i].ruged = true;
         }
     }
 
-    function hasRuged(Pool memory pool) public returns (bool) {
-        (uint256 reserveA, uint256 reserveB) = getUniswapLiquidity(pool.tokenA, pool.tokenB);
+    function hasRuged(Pool memory pool) public view returns (bool) {
+        uint256 reserveA;
+        uint256 reserveB;
+
+        if (
+            keccak256(abi.encodePacked(pool.exchange)) == keccak256(abi.encodePacked(exchanges[0]))
+        ) {
+            (reserveA, reserveB) = getUniswapLiquidity(pool.tokenA, pool.tokenB);
+        } else if (
+            keccak256(abi.encodePacked(pool.exchange)) == keccak256(abi.encodePacked(exchanges[1]))
+        ) {
+            (reserveA, reserveB) = getPancakeswapLiquidity(pool.tokenA, pool.tokenB);
+        }
+
+        IERC20Metadata tokenA = IERC20Metadata(pool.tokenA);
+        uint256 _MINIMUMLIQUDITY_TOKEN = MINIMUMLIQUDITY_TOKEN * 10 ** tokenA.decimals();
+
+        if (reserveA <= _MINIMUMLIQUDITY_TOKEN) return true;
+        if (reserveA > _MINIMUMLIQUDITY_TOKEN) return false;
     }
 
     function getUniswapLiquidity(
