@@ -99,9 +99,10 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
 
     string[] exchanges = ["uniswap", "pancakeswap"];
 
-    constructor(address _WERUG, address _uniswapRouter) {
+    constructor(address _WERUG, address _uniswapRouter, address _pancakeRouter) {
         WERUG = IERC20(_WERUG);
         uniswapRouter = IUniswapV2Router02(_uniswapRouter);
+        pancakeRouter = IPancakeRouter02(_pancakeRouter);
     }
 
     modifier itExist(uint256 _poolId) {
