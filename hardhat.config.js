@@ -14,7 +14,7 @@ const POLYGON_RPC_URL =
     process.env.POLYGON_RPC_URL || "https://polygon-mainnet.alchemyapi.io/v2/your-api-key"
 const ZETACHAIN_TESTNET_RPC_URL = process.env.ZETACHAIN_TESTNET_RPC_URL
 const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x"
-
+const TESTBNB_RPC_URL = process.env.TESTBNB_RPC_URL
 // Your API key for Etherscan, obtain one at https://etherscan.io/
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "Your etherscan API key"
 const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY || "Your polygonscan API key"
@@ -46,6 +46,11 @@ module.exports = {
                 enabled: true,
             },
             chainId: 80001,
+        },
+        testBnb: {
+            url: TESTBNB_RPC_URL,
+            accounts: [PRIVATE_KEY],
+            chainId: 97,
         },
     },
     etherscan: {

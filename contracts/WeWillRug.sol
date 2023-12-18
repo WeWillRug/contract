@@ -7,6 +7,8 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 
 interface IERC20Metadata is IERC20 {
     /**
@@ -57,7 +59,7 @@ error VotingHasNotEnded();
 error TokenDidRugYouCanotClaim();
 error InvalidExchange();
 
-contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
+contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard, Ownable {
     enum Options {
         WillRug,
         WillNotRug
@@ -99,10 +101,11 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
 
     string[] exchanges = ["uniswap", "pancakeswap"];
 
-    constructor(address _WERUG, address _uniswapRouter, address _pancakeRouter) {
+    constructor(address _WERUG, address _uniswapRouter, address _pancakeRouter){
         WERUG = IERC20(_WERUG);
         uniswapRouter = IUniswapV2Router02(_uniswapRouter);
         pancakeRouter = IPancakeRouter02(_pancakeRouter);
+
     }
 
     modifier itExist(uint256 _poolId) {
@@ -232,7 +235,7 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         for (uint i = 0; i < poolCounter; i++) {
             Pool storage pool = pools[i];
             if (pool.ruged == false) {
-                if (pool.timeCreated + maxVotingPeriod >= block.timestamp) {
+                if (pool.timeCreated + betEnding >= block.timestamp) {
                     activePools[counter] = pool;
                     counter++;
                 }
@@ -240,11 +243,17 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         }
         for (uint i = 0; i < activePools.length; i++) {
             bool ruged = hasRuged(activePools[i]);
-            if (ruged) activePools[i].ruged = true;
+            uint256 teamTax = activePools[i].totalWERUG * (teamPercent / 100);
+            if (ruged) {
+                activePools[i].ruged = true;
+                WERUG.transfer( Ownable.owner() , teamTax);
+                }else if(activePools[i].timeCreated + betEnding <= block.timestamp) {
+                WERUG.transfer( Ownable.owner() , teamTax);
+                }
         }
     }
 
-    function hasRuged(Pool memory pool) public view returns (bool) {
+    function hasRuged(Pool memory pool) public view returns (bool _hasRuged) {
         uint256 reserveA;
         uint256 reserveB;
 
@@ -261,8 +270,11 @@ contract WeWillRug is AutomationCompatibleInterface, ReentrancyGuard {
         IERC20Metadata tokenA = IERC20Metadata(pool.tokenA);
         uint256 _MINIMUMLIQUDITY_TOKEN = MINIMUMLIQUDITY_TOKEN * 10 ** tokenA.decimals();
 
-        if (reserveA <= _MINIMUMLIQUDITY_TOKEN) return true;
-        if (reserveA > _MINIMUMLIQUDITY_TOKEN) return false;
+        if (reserveA <= _MINIMUMLIQUDITY_TOKEN){
+            _hasRuged = true;
+            } else if (reserveA > _MINIMUMLIQUDITY_TOKEN){
+                _hasRuged = false;
+            }
     }
 
     function getUniswapLiquidity(
